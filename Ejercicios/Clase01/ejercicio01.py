@@ -6,15 +6,15 @@ impares = []
 try:
     numero = int(sys.argv[1])
 except IndexError:
-    print("Error: se requiere un argumento.")
+    sys.stderr.write("Error: se requiere un argumento.\n")
     sys.exit()
 except ValueError:
-    print("Error: el argumento debe ser un número entero.")
+    sys.stderr.write("Error: el argumento debe ser un número entero.\n")
     sys.exit()
 
 # Validar que el numero sea positivo
 if numero <= 0:
-    print("Error: el argumento debe ser un número natural positivo.")
+    sys.stderr.write("Error: el argumento debe ser un número natural positivo.\n")
     sys.exit()
 
 # Obetenemos los numero impares
