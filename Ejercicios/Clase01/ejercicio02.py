@@ -1,21 +1,18 @@
 import sys
+import argparse
 
-# Validamos que se ingresen dos argumentos 
-if len(sys.argv) != 3:
-    sys.stderr.write('Se deben pasar dos argumentos una cadena de texto y un número\n')
-    sys.exit(1)
+# Defino el parser
+parser = argparse.ArgumentParser(description='Imprime el texto ingresado n veces')
 
-# Obtenemos los argumentos
-texto = sys.argv[1]
-numero = sys.argv[2]
+#Agrego los argumentos
+parser.add_argument('texto', type=str, help='Cadena de texto a imprimir')
+parser.add_argument('numero', type=int, help='Número de veces que se debe imprimir el texto')
 
+# Recuperamos los argumentos
+args = parser.parse_args()
 
-# Comprobamos que el segundo argumento sea un número entero
-try:
-    numero = int(numero)
-except ValueError:
-    sys.stderr.write('El segundo argumento debe ser un número entero\n')
-    sys.exit(1)
+texto = args.texto
+numero = args.numero
 
 # Escribimos el texto en la salida estandar
-sys.stdout.write( texto * numero + '\n')   
+sys.stdout.write( (texto + '\n') * numero )   

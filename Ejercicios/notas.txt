@@ -1,0 +1,1 @@
+system es bloqueante mientras popen no es bloqueante, no espera a que termine el proceso hijo
