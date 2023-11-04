@@ -6,7 +6,7 @@ import time
 def invertir_linea(linea, w):
     w.write(linea[::-1])
 
-
+# Test
 def procesar_archivo(archivo):
     procesos = []
     for linea in archivo:
@@ -51,4 +51,3 @@ if __name__ == '__main__':
         print(f"'{args.archivo}' es un directorio.")
     except PermissionError:
         print(f"No se tienen permisos para abrir el archivo '{args.archivo}'.")
-
