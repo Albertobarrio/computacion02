@@ -10,7 +10,7 @@ Este script en Python implementa un servidor HTTP que puede recibir imágenes, p
   pip install pillow
 
 ## 1. Clona el Reporsitorio
-git clone https://github.com/tu-usuario/tp2-imagenes.git
+git clone https://github.com/Albertobarrio/computacion02.git
 cd tp2-imagenes
 
 ## 2. Ejecuta el script con la dirección IP y el puerto deseados:

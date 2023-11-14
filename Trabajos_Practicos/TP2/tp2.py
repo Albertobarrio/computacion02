@@ -13,8 +13,8 @@ SCALE_SERVER_PORT = 8081  # Puerto predeterminado para el servidor de escalado
 SCALE_FACTOR = 0.5  # Escala predeterminada
 
 def process_image(lock, image_data):
-    lock.acquire()
     try:
+        lock.acquire()
         original_image = Image.open(io.BytesIO(image_data))
         grayscale_image = original_image.convert('L')
 
@@ -27,37 +27,45 @@ def process_image(lock, image_data):
     return processed_image
 
 def scale_image(factor, image_data):
-    original_image = Image.open(io.BytesIO(image_data))
-    width, height = original_image.size
-    new_width = int(width * factor)
-    new_height = int(height * factor)
-    scaled_image = original_image.resize((new_width, new_height))
+    try:
+        original_image = Image.open(io.BytesIO(image_data))
+        width, height = original_image.size
+        new_width = int(width * factor)
+        new_height = int(height * factor)
+        scaled_image = original_image.resize((new_width, new_height))
 
-    buffered = io.BytesIO()
-    scaled_image.save(buffered, format="JPEG")
-    scaled_image_data = buffered.getvalue()
+        buffered = io.BytesIO()
+        scaled_image.save(buffered, format="JPEG")
+        scaled_image_data = buffered.getvalue()
 
-    return scaled_image_data
+        return scaled_image_data
+    except Exception as e:
+        print(f"Error al escalar la imagen: {e}")
+        return None
 
 def run_server(ip, port, lock):
     class CustomHandler(SimpleHTTPRequestHandler):
         def do_POST(self):
             if self.path == '/upload':
-                content_length = int(self.headers['Content-Length'])
-                image_data = self.rfile.read(content_length)
+                try:
+                    content_length = int(self.headers['Content-Length'])
+                    image_data = self.rfile.read(content_length)
 
-                processed_image = process_image(lock, image_data)
+                    processed_image = process_image(lock, image_data)
 
-                # Enviar la imagen procesada al cliente
-                self.send_response(200)
-                self.send_header('Content-type', 'image/jpeg')
-                self.send_header('Content-length', len(processed_image))
-                self.end_headers()
-                self.wfile.write(processed_image)
+                    # Enviar la imagen procesada al cliente
+                    self.send_response(200)
+                    self.send_header('Content-type', 'image/jpeg')
+                    self.send_header('Content-length', len(processed_image))
+                    self.end_headers()
+                    self.wfile.write(processed_image)
 
-                # Escalar la imagen en el servidor secundario
-                scale_image_on_secondary_server(self.path, processed_image)
+                    # Escalar la imagen en el servidor secundario
+                    scale_image_on_secondary_server(self.path, processed_image)
 
+                except Exception as e:
+                    print(f"Error al procesar la imagen: {e}")
+                    self.send_error(500, "Internal Server Error")
             else:
                 super().do_POST()
 
@@ -72,53 +80,62 @@ def run_server(ip, port, lock):
         print("Servidor detenido")
 
 def scale_image_on_secondary_server(path, image_data):
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.connect(('127.0.0.1', SCALE_SERVER_PORT))
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.connect(('127.0.0.1', SCALE_SERVER_PORT))
 
-        # Enviar la solicitud POST a /scale al servidor secundario
-        sock.sendall(b'POST /scale HTTP/1.1\r\n')
-        sock.sendall(f'Content-Length: {len(image_data)}\r\n'.encode())
-        sock.sendall(f'Scale-Factor: {SCALE_FACTOR}\r\n'.encode())  # Use the global scale factor
-        sock.sendall(b'Content-Type: image/jpeg\r\n\r\n')
-        sock.sendall(image_data)
+            # Enviar la solicitud POST a /scale al servidor secundario
+            sock.sendall(b'POST /scale HTTP/1.1\r\n')
+            sock.sendall(f'Content-Length: {len(image_data)}\r\n'.encode())
+            sock.sendall(f'Scale-Factor: {SCALE_FACTOR}\r\n'.encode())  # Use the global scale factor
+            sock.sendall(b'Content-Type: image/jpeg\r\n\r\n')
+            sock.sendall(image_data)
 
-        # Leer la respuesta del servidor secundario
-        response = b''
-        while True:
-            data = sock.recv(1024)
-            if not data:
-                break
-            response += data
+            # Leer la respuesta del servidor secundario
+            response = b''
+            while True:
+                data = sock.recv(1024)
+                if not data:
+                    break
+                response += data
 
-        # Guardar la imagen escalada en el directorio actual
-        scaled_image_path = os.path.join(os.getcwd(), 'scaled_image.jpg')
-        with open(scaled_image_path, 'wb') as scaled_image_file:
-            scaled_image_file.write(response.split(b'\r\n\r\n', 1)[1])  # Write only image data
+            # Guardar la imagen escalada en el directorio actual
+            scaled_image_path = os.path.join(os.getcwd(), 'imagen_escalada.jpg')
+            with open(scaled_image_path, 'wb') as scaled_image_file:
+                scaled_image_file.write(response.split(b'\r\n\r\n', 1)[1])  # Write only image data
 
-        # Imprimir la respuesta HTTP del servidor secundario
-        print(f"Scaled image saved at: {scaled_image_path}")
-
+            # Imprimir la respuesta HTTP del servidor secundario
+            print(f"La imagen escalada se guardo en: {scaled_image_path}")
+    except Exception as e:
+        print(f"Error escalando la imagen en el segundo servidor: {e}")
 
 def run_scale_server(ip, port=SCALE_SERVER_PORT):
     class ScaleServerHandler(SimpleHTTPRequestHandler):
         def do_POST(self):
-            if self.path == '/scale':
-                content_length = int(self.headers['Content-Length'])
-                image_data = self.rfile.read(content_length)
+            try:
+                if self.path == '/scale':
+                    content_length = int(self.headers['Content-Length'])
+                    image_data = self.rfile.read(content_length)
 
-                # Escalar la imagen según el factor proporcionado
-                scaled_image = scale_image(SCALE_FACTOR, image_data)
+                    # Escalar la imagen según el factor proporcionado
+                    scaled_image = scale_image(SCALE_FACTOR, image_data)
 
-                # Configurar la respuesta HTTP
-                self.send_response(200)
-                self.send_header('Content-type', 'image/jpeg')
-                self.send_header('Content-length', len(scaled_image))
-                self.end_headers()
+                    if scaled_image:
+                        # Configurar la respuesta HTTP
+                        self.send_response(200)
+                        self.send_header('Content-type', 'image/jpeg')
+                        self.send_header('Content-length', len(scaled_image))
+                        self.end_headers()
 
-                # Enviar la imagen escalada al cliente
-                self.wfile.write(scaled_image)
-            else:
-                super().do_POST()
+                        # Enviar la imagen escalada al cliente
+                        self.wfile.write(scaled_image)
+                    else:
+                        self.send_error(500, "Internal Server Error")
+                else:
+                    super().do_POST()
+            except Exception as e:
+                print(f"Error procesadon la request de escalado: {e}")
+                self.send_error(500, "Internal Server Error")
 
     handler = ScaleServerHandler
     scale_server = socketserver.ThreadingTCPServer((ip, port), handler)
